@@ -188,12 +188,10 @@ public partial class PlaylistManagerService(
         Directory.CreateDirectory(_options.DownloadPath);
         string baseUrl = Helper.GetConfigValue("VideoBaseUrl");
 
-        var downloadTasks = downloadIDs.Select(id => downloadManager.DownloadWebmAudioAsync(baseUrl + id)).ToList();
+        var downloadTasks = downloadIDs.Select(id => downloadManager.DownloadWebmAudioAsync(baseUrl + id)).ToArray();
+        var progressTask = ConsoleManager.ShowProgressBarWhileTasksRunningAsync(downloadTasks);
 
-        var progressTask = Task.Run(() => ConsoleManager.ShowProgressBarWhileTasksRunning(downloadTasks));
-
-        await Task.WhenAll(downloadTasks);
-        await progressTask;
+        await Task.WhenAll(Task.WhenAll(downloadTasks), progressTask);
 
         Console.WriteLine($"\nA letöltés elkészült Mester!");
         CheckForUnsuccesfulDownloads(titles, RenameFiles());

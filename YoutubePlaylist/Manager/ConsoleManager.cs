@@ -8,7 +8,7 @@ public class ConsoleManager
 
         List<char> buffer = [.. defaultValue.ToCharArray().Take(Console.WindowWidth - caret.Length - 1)];
         Console.Write(caret);
-        Console.Write(buffer.ToArray());
+        Console.Write([.. buffer]);
         Console.SetCursorPosition(Console.CursorLeft, Console.CursorTop);
 
         ConsoleKeyInfo keyInfo = Console.ReadKey(true);
@@ -87,6 +87,28 @@ public class ConsoleManager
         }
     }
 
+    public static async Task ShowProgressBarWhileTasksRunningAsync(Task[] tasks)
+    {
+        while (!tasks.All(t => t.IsCompleted))
+        {
+            Console.SetCursorPosition(0, Console.CursorTop);
+            Console.Write(new string(' ', Console.WindowWidth - 1));
+            Console.SetCursorPosition(0, Console.CursorTop);
+
+            await Task.Delay(300);
+
+            for (int i = 0; i < 6; i++)
+            {
+                if (tasks.All(t => t.IsCompleted)) break;
+
+                Console.Write(":");
+                await Task.Delay(100);
+            }
+
+            if (!tasks.All(t => t.IsCompleted))
+                await Task.Delay(600);
+        }
+    }
 
     private static void RewriteLine(string caret, List<char> buffer)
     {
