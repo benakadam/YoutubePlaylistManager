@@ -3,17 +3,17 @@
 namespace YoutubePlaylistManager.Cli.Interface;
 public interface IDataAccess
 {
-    public List<string> GetPlaylistItems(string playlistName);
+    public Task<List<string>> GetPlaylistItemsAsync(string playlistName);
 
-    public bool CreateTableIfNotExist(string tableName);
+    public Task<bool> CreateTableIfNotExistAsync(string tableName);
 
-    public void InsertPlaylistItem(string playlist, string playlistItem);
+    public Task InsertPlaylistItemAsync(string playlist, string playlistItem);
 
-    public void InsertPlaylistItems(string playlist, List<string> playlistItems);
+    public Task InsertPlaylistItemsAsync(string playlist, List<string> playlistItems);
 
-    public void InsertDeleted(string playlist, List<string> playlistItems);
+    public Task InsertDeletedAsync(string playlist, List<string> playlistItems);
 
-    public List<Deleted> GetLatestDeleted();
+    public Task<List<Deleted>> GetLatestDeletedAsync();
 
-    public void TruncateTable(string tableName);
+    public Task TruncateTableAsync(string tableName);
 }

@@ -8,55 +8,56 @@ namespace YoutubePlaylistManager.Cli.DataAccess;
 
 public class DataAccess(IDateTimeProvider dateTimeProvider) : IDataAccess
 {
-    public List<string> GetPlaylistItems(string playlistName)
+    public async Task<List<string>> GetPlaylistItemsAsync(string playlistName)
     {
         playlistName = Helper.SanitizeTableName(playlistName);
 
-        return DbHelper.ExecuteWithConnection(connection =>
+        return await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
-            return connection.Query<string>($"SELECT Name FROM {playlistName}").ToList();
+            var result = await connection.QueryAsync<string>($"SELECT Name FROM {playlistName}");
+            return result.ToList();
         });
     }
 
-    public bool CreateTableIfNotExist(string tableName)
+    public async Task<bool> CreateTableIfNotExistAsync(string tableName)
     {
         tableName = Helper.SanitizeTableName(tableName);
 
-        if (DoesTableExist(tableName)) return false;
+        if (await DoesTableExistAsync(tableName)) return false;
         
 
-        DbHelper.ExecuteWithConnection(connection =>
+        await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
-            connection.Execute($"CREATE TABLE {tableName} (Name NVARCHAR(255))");
+            return await connection.ExecuteAsync($"CREATE TABLE {tableName} (Name NVARCHAR(255))");
         });
         return true;
     }
 
-    public void InsertPlaylistItem(string playlist, string playlistItem)
+    public async Task InsertPlaylistItemAsync(string playlist, string playlistItem)
     {
         playlist = Helper.SanitizeTableName(playlist);
 
-        DbHelper.ExecuteWithConnection(connection =>
+        await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
-            connection.Execute($"INSERT INTO {playlist}(Name) VALUES(@PlaylistItem)", new { PlaylistItem = playlistItem});
+            return await connection.ExecuteAsync($"INSERT INTO {playlist}(Name) VALUES(@PlaylistItem)", new { PlaylistItem = playlistItem});
         });       
     }
 
-    public void InsertPlaylistItems(string playlist, List<string> playlistItems)
+    public async Task InsertPlaylistItemsAsync(string playlist, List<string> playlistItems)
     {
         playlist = Helper.SanitizeTableName(playlist);
 
-        DbHelper.ExecuteWithConnection(connection =>
+        await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
             var parameters = playlistItems.Select(item => new { PlaylistItem = item }).ToArray();
 
-            connection.Execute($"INSERT INTO {playlist}(Name) VALUES(@PlaylistItem)", parameters);
+            return await connection.ExecuteAsync($"INSERT INTO {playlist}(Name) VALUES(@PlaylistItem)", parameters);
         });
     }
 
-    public void InsertDeleted(string playlist, List<string> playlistItems)
+    public async Task InsertDeletedAsync(string playlist, List<string> playlistItems)
     {
-        DbHelper.ExecuteWithConnection(connection =>
+        await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
             var parameters = playlistItems.Select(item => new
             {
@@ -65,35 +66,37 @@ public class DataAccess(IDateTimeProvider dateTimeProvider) : IDataAccess
                 DeletedAt = dateTimeProvider.Now,
             }).ToArray();
 
-            connection.Execute($"INSERT INTO DELETED(Playlist, Title, DeletedAt) VALUES(@Playlist, @PlaylistItem, @DeletedAt)", parameters);
+            return await connection.ExecuteAsync($"INSERT INTO DELETED(Playlist, Title, DeletedAt) VALUES(@Playlist, @PlaylistItem, @DeletedAt)", parameters);
         });
     }
 
-    public List<Deleted> GetLatestDeleted()
+    public async Task<List<Deleted>> GetLatestDeletedAsync()
     {
-        return DbHelper.ExecuteWithConnection(connection =>
+        return await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
-            return connection.Query<Deleted>($"SELECT * FROM DELETED WHERE DeletedAt = @DeletedAt",
-                new { DeletedAt = dateTimeProvider.Now }).ToList();
+            var result = await connection.QueryAsync<Deleted>($"SELECT * FROM DELETED WHERE DeletedAt = @DeletedAt",
+                new { DeletedAt = dateTimeProvider.Now });
+            return result.ToList();
         });
     }
 
-    public void TruncateTable(string tableName)
+    public async Task TruncateTableAsync(string tableName)
     {
         tableName = Helper.SanitizeTableName(tableName);
 
-        DbHelper.ExecuteWithConnection(connection =>
+        await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
-            connection.Execute($"TRUNCATE TABLE {tableName}");
+            return await connection.ExecuteAsync($"TRUNCATE TABLE {tableName}");
         });
     }
 
-    private bool DoesTableExist(string tableName)
+    private async Task<bool> DoesTableExistAsync(string tableName)
     {
-        return DbHelper.ExecuteWithConnection(connection =>
+        return await DbHelper.ExecuteWithConnectionAsync(async connection =>
         {
             string query = $"SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = @TableName";
-            return connection.QuerySingle<int>(query, new { TableName = tableName }) > 0;
+            var result = await connection.QuerySingleAsync<int>(query, new { TableName = tableName });
+            return result > 0;
         });
     }
 }

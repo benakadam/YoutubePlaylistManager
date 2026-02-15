@@ -11,17 +11,17 @@ public class YoutubeApiManager(
     private const int _limit = 200;
     private readonly PlaylistManagerOptions _options = options.Value;
 
-    public PlaylistListResponse? GetPlaylists()
+    public async Task<PlaylistListResponse?> GetPlaylistsAsync()
     {
         var playlistRequest = youTubeService.Playlists.List("snippet");
 
-        playlistRequest.MaxResults = _limit;
         playlistRequest.ChannelId = _options.ChannelID;
+        playlistRequest.MaxResults = _limit;
 
-        return playlistRequest.Execute();
+        return await playlistRequest.ExecuteAsync();
     }
 
-    public List<string> GetPlaylistItems(string playlistId, bool id = false)
+    public async Task<List<string>> GetPlaylistItemsAsync(string playlistId, bool id = false)
     {
         List<string> playlistItems = [];
 
@@ -34,7 +34,7 @@ public class YoutubeApiManager(
         do
         {
             playlistItemsRequest.PageToken = playlistItemResponse.NextPageToken;
-            playlistItemResponse = playlistItemsRequest.Execute();
+            playlistItemResponse = await playlistItemsRequest.ExecuteAsync();
 
             playlistItems.AddRange(playlistItemResponse.Items.Select(x => id ? x.Snippet.ResourceId.VideoId : x.Snippet.Title));
         }

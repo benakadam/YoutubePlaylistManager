@@ -34,7 +34,7 @@ public partial class PlaylistManagerService(
 
         try
         {
-            var playlistsResponse = playlistManager.GetPlaylists();
+            var playlistsResponse = await playlistManager.GetPlaylistsAsync();
             if (playlistsResponse is null)
             {
                 Console.WriteLine("Nem található lejátszási lista");
@@ -42,16 +42,16 @@ public partial class PlaylistManagerService(
             }
 
             Playlist downloadPlaylist = playlistsResponse.Items.First(x => x.Snippet.Title == DOWNLOAD);
-            List<string> downloadVideos = playlistManager.GetPlaylistItems(downloadPlaylist.Id);
-            List<string> downloadIDs = playlistManager.GetPlaylistItems(downloadPlaylist.Id, true);
+            List<string> downloadVideos = await playlistManager.GetPlaylistItemsAsync(downloadPlaylist.Id);
+            List<string> downloadIDs = await playlistManager.GetPlaylistItemsAsync(downloadPlaylist.Id, true);
 
             List<Playlist> playlists = [.. playlistsResponse.Items.Where(x => x.Snippet.Title != DOWNLOAD)];
 
             Console.WriteLine("Könyvtár karbantartása");
-            CheckForMissingItemsWithApi(playlists, downloadVideos);
-            var affectedPlaylistIds = await CheckForMissingItemsWithHtml(playlists);
+            await CheckForMissingItemsWithApiAsync(playlists, downloadVideos);
+            var affectedPlaylistIds = await CheckForMissingItemsWithHtmlAsync(playlists);
 
-            List<Deleted> deletedVideos = dataAccess.GetLatestDeleted();
+            List<Deleted> deletedVideos = await dataAccess.GetLatestDeletedAsync();
             var index = deletedVideos.FindIndex(d => d.Playlist == SECOND_ATTEMPT);
             WriteOutResult(deletedVideos.Take(index));
             Console.WriteLine($"{SECOND_ATTEMPT}:");
@@ -60,7 +60,7 @@ public partial class PlaylistManagerService(
             OpenAffectedPlaylistsInBrowser(affectedPlaylistIds);
 
             if (downloadIDs.Count == 0) return;
-            await DownloadVideos(downloadIDs, downloadVideos);
+            await DownloadVideosAsync(downloadIDs, downloadVideos);
         }
         catch (Exception ex)
         {
@@ -71,33 +71,33 @@ public partial class PlaylistManagerService(
         Console.ReadKey();
     }
 
-    private void CheckForMissingItemsWithApi(List<Playlist> playlists, List<string> downloadVideos)
+    private async Task CheckForMissingItemsWithApiAsync(List<Playlist> playlists, List<string> downloadVideos)
     {
         foreach (var playlist in playlists)
         {
-            var currentItems = playlistManager.GetPlaylistItems(playlist.Id);
+            var currentItems = await playlistManager.GetPlaylistItemsAsync(playlist.Id);
             if (currentItems.Count == 0) continue;
 
             var playlistTitle = playlist.Snippet.Title;
 
-            dataAccess.CreateTableIfNotExist(playlistTitle);
-            List<string> previousItems = dataAccess.GetPlaylistItems(playlistTitle);
+            await dataAccess.CreateTableIfNotExistAsync(playlistTitle);
+            List<string> previousItems = await dataAccess.GetPlaylistItemsAsync(playlistTitle);
 
             var diffTitles = previousItems.Except(currentItems).ToList();
             diffTitles = [.. diffTitles.Except(downloadVideos)];
 
             diffTitles.RemoveAll(x => x == "Deleted video");
             if (diffTitles.Count != 0)
-                dataAccess.InsertDeleted(playlistTitle, diffTitles);
+                await dataAccess.InsertDeletedAsync(playlistTitle, diffTitles);
 
-            dataAccess.TruncateTable(playlistTitle);
-            dataAccess.InsertPlaylistItems(playlistTitle, currentItems);
+            await dataAccess.TruncateTableAsync(playlistTitle);
+            await dataAccess.InsertPlaylistItemsAsync(playlistTitle, currentItems);
         }
     }
 
-    private async Task<List<string>> CheckForMissingItemsWithHtml(List<Playlist> playlists)
+    private async Task<List<string>> CheckForMissingItemsWithHtmlAsync(List<Playlist> playlists)
     {
-        dataAccess.InsertDeleted(SECOND_ATTEMPT, [""]);
+        await dataAccess.InsertDeletedAsync(SECOND_ATTEMPT, [""]);
         List<string> affectedPlaylistIds = [];
 
 
@@ -116,13 +116,13 @@ public partial class PlaylistManagerService(
             var matchList = matches.Take(matches.Count - 7);
 
             List<string> videos = [.. matchList.Select(x => Regex.Unescape(x.Groups[1].Value))];
-            List<string> allVideos = dataAccess.GetPlaylistItems(playlist.Snippet.Title);
+            List<string> allVideos = await dataAccess.GetPlaylistItemsAsync(playlist.Snippet.Title);
 
             List<string> missings = [.. allVideos.Take(100).Except(videos)];
 
             if (missings.Count == 0) continue;
 
-            dataAccess.InsertDeleted(playlist.Snippet.Title, missings);
+            await dataAccess.InsertDeletedAsync(playlist.Snippet.Title, missings);
         }
 
         return affectedPlaylistIds;
@@ -182,7 +182,7 @@ public partial class PlaylistManagerService(
                     UseShellExecute = true
                 }));
 
-    private async Task DownloadVideos(List<string> downloadIDs, List<string> titles)
+    private async Task DownloadVideosAsync(List<string> downloadIDs, List<string> titles)
     {
         Console.WriteLine("Letöltés");
         Directory.CreateDirectory(_options.DownloadPath);
@@ -213,7 +213,7 @@ public partial class PlaylistManagerService(
             if (File.Exists(destinationPath)) continue;
 
             File.Move(Path.Combine(_options.DownloadPath, file + ".mp3"), destinationPath);
-            dataAccess.InsertPlaylistItem("ALLSONGS", newFileName);
+            dataAccess.InsertPlaylistItemAsync("ALLSONGS", newFileName);
         }
 
         return files;
