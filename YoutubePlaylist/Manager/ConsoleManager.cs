@@ -87,19 +87,22 @@ public class ConsoleManager
         }
     }
 
-    public static async Task ShowProgressBarWhileTasksRunningAsync(Task[] tasks)
+    public static Task ShowProgressBarWhileTasksRunningAsync(Task[] tasks)
     {
-        int counter = 0;
-
-        while (!tasks.All(t => t.IsCompleted))
+        return Task.Run(() =>
         {
-            Console.Write($"\rLetöltés {new string('.', counter % 4)}   ");
-            counter++;
+            int counter = 0;
 
-            await Task.Delay(200);
-        }
+            while (!tasks.All(t => t.IsCompleted))
+            {
+                Console.Write($"\rLetöltés {new string('.', counter % 4)}   ");
+                counter++;
 
-        Console.WriteLine("\rKész!                    ");
+                Thread.Sleep(200);
+            }
+
+            Console.WriteLine("\rKész!                         ");
+        });
     }
 
     private static void RewriteLine(string caret, List<char> buffer)
