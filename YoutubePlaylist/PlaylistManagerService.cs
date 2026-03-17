@@ -184,11 +184,25 @@ public partial class PlaylistManagerService(
 
     private async Task DownloadVideosAsync(List<string> downloadIDs, List<string> titles)
     {
-        Console.WriteLine("Letöltés");
         Directory.CreateDirectory(_options.DownloadPath);
         string baseUrl = Helper.GetConfigValue("VideoBaseUrl");
 
-        var downloadTasks = downloadIDs.Select(id => downloadManager.DownloadWebmAudioAsync(baseUrl + id)).ToArray();
+        int maxParallel = 10;
+        using var semaphore = new SemaphoreSlim(maxParallel);
+
+        var downloadTasks = downloadIDs.Select(async id =>
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                await downloadManager.DownloadWebmAudioAsync(baseUrl + id);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToArray();
+
         var progressTask = ConsoleManager.ShowProgressBarWhileTasksRunningAsync(downloadTasks);
 
         await Task.WhenAll(Task.WhenAll(downloadTasks), progressTask);

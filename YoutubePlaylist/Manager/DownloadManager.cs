@@ -7,20 +7,17 @@ namespace YoutubePlaylistManager.Cli.Manager;
 public class DownloadManager(IOptions<DownloadManagerOptions> options)
 {
     private bool _isUpdated = false;
-
+    private readonly SemaphoreSlim _updateLock = new(1, 1);
     private readonly FFMpegConverter _converter = new();
     private readonly DownloadManagerOptions _options = options.Value;
+
 
     public async Task DownloadWebmAudioAsync(string url)
     {
         string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\"));
         string exePath = Path.Combine(projectRoot, "Thirdparty", "yt-dlp.exe");
 
-        if (!_isUpdated)
-        {
-            await RunProcessAsync(exePath, "-U");
-            _isUpdated = true;
-        }
+        await EnsureUpdated(exePath);
 
         string outputTemplate = Path.Combine(_options.DownloadPath, "%(title)s.%(ext)s");
         string args = $"-f bestaudio --extract-audio --audio-format mp3 --audio-quality 0 " +
@@ -75,5 +72,24 @@ public class DownloadManager(IOptions<DownloadManagerOptions> options)
 
         process.Start();
         return tcs.Task;
+    }
+
+    private async Task EnsureUpdated(string exePath)
+    {
+        if (_isUpdated) return;
+
+        await _updateLock.WaitAsync();
+        try
+        {
+            if (!_isUpdated)
+            {
+                await RunProcessAsync(exePath, "-U");
+                _isUpdated = true;
+            }
+        }
+        finally
+        {
+            _updateLock.Release();
+        }
     }
 }

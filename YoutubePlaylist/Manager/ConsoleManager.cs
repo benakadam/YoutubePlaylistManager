@@ -89,25 +89,17 @@ public class ConsoleManager
 
     public static async Task ShowProgressBarWhileTasksRunningAsync(Task[] tasks)
     {
+        int counter = 0;
+
         while (!tasks.All(t => t.IsCompleted))
         {
-            Console.SetCursorPosition(0, Console.CursorTop);
-            Console.Write(new string(' ', Console.WindowWidth - 1));
-            Console.SetCursorPosition(0, Console.CursorTop);
+            Console.Write($"\rLetöltés {new string('.', counter % 4)}   ");
+            counter++;
 
-            await Task.Delay(300);
-
-            for (int i = 0; i < 6; i++)
-            {
-                if (tasks.All(t => t.IsCompleted)) break;
-
-                Console.Write(":");
-                await Task.Delay(100);
-            }
-
-            if (!tasks.All(t => t.IsCompleted))
-                await Task.Delay(600);
+            await Task.Delay(200);
         }
+
+        Console.WriteLine("\rKész!                    ");
     }
 
     private static void RewriteLine(string caret, List<char> buffer)
